@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { useGameStore } from '@/store/gameStore'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Filter, ChevronRight, Snowflake } from 'lucide-react'
+import { Filter, ChevronRight, Snowflake, History, Trash2, Eye } from 'lucide-react'
 import CaseCard from '@/components/CaseCard'
 import CaseDetail from '@/components/CaseDetail'
+import { PracticeRecord } from '@/types'
 
 type Difficulty = 'all' | 'beginner' | 'intermediate' | 'advanced'
 
@@ -15,14 +16,48 @@ const difficulties: { key: Difficulty; label: string }[] = [
   { key: 'advanced', label: '高级' },
 ]
 
+const difficultyBadge: Record<Difficulty, string> = {
+  all: '',
+  beginner: 'bg-safe/20 text-safe border-safe/30',
+  intermediate: 'bg-ice-500/20 text-ice-400 border-ice-500/30',
+  advanced: 'bg-warn/20 text-warn border-warn/30',
+}
+
+const difficultyLabel: Record<string, string> = {
+  beginner: '初级',
+  intermediate: '中级',
+  advanced: '高级',
+}
+
+function getGrade(total: number): { grade: string; color: string } {
+  if (total >= 90) return { grade: 'S', color: 'text-yellow-400' }
+  if (total >= 75) return { grade: 'A', color: 'text-safe' }
+  if (total >= 60) return { grade: 'B', color: 'text-ice-500' }
+  if (total >= 40) return { grade: 'C', color: 'text-warn' }
+  return { grade: 'D', color: 'text-danger' }
+}
+
+function formatDate(ts: number): string {
+  const d = new Date(ts)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function getScoreColor(score: number): string {
+  if (score >= 75) return 'text-safe'
+  if (score >= 50) return 'text-warn'
+  return 'text-danger'
+}
+
 export default function CaseSelection() {
-  const { allCases, selectCase, currentCase, startGame } = useGameStore()
+  const { allCases, selectCase, currentCase, startGame, practiceHistory, replayHistory, clearHistory } = useGameStore()
   const navigate = useNavigate()
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [difficulty, setDifficulty] = useState<Difficulty>('all')
 
   const filtered = difficulty === 'all' ? allCases : allCases.filter((c) => c.difficulty === difficulty)
+  const recentRecords = practiceHistory.slice(0, 5)
 
   const handleCardClick = (caseId: string) => {
     setSelectedId(caseId)
@@ -36,6 +71,17 @@ export default function CaseSelection() {
 
   const handleClose = () => {
     setSelectedId(null)
+  }
+
+  const handleReplay = (recordId: string) => {
+    replayHistory(recordId)
+    navigate('/review')
+  }
+
+  const handleClearHistory = () => {
+    if (window.confirm('确定要清空所有练习记录吗？此操作不可撤销。')) {
+      clearHistory()
+    }
   }
 
   return (
@@ -134,6 +180,79 @@ export default function CaseSelection() {
             </button>
           </motion.div>
         )}
+
+        <motion.div
+          className="mt-12"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <History size={20} className="text-ice-400" />
+              <h2 className="text-lg font-body text-ice-200 font-medium">最近练习记录</h2>
+            </div>
+            {practiceHistory.length > 0 && (
+              <button
+                onClick={handleClearHistory}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs text-ice-300/60 hover:text-danger bg-cold-card border border-cold-border rounded-lg transition-all hover:border-danger/40"
+              >
+                <Trash2 size={14} />
+                清空记录
+              </button>
+            )}
+          </div>
+
+          {recentRecords.length === 0 ? (
+            <div className="card-base text-center py-12">
+              <div className="text-ice-300/40 text-base">
+                暂无练习记录，开始你的第一次演练吧！
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {recentRecords.map((record: PracticeRecord) => {
+                const { grade, color } = getGrade(record.score.totalScore)
+                return (
+                  <div
+                    key={record.id}
+                    className="card-base p-4 flex items-center gap-4 hover:border-ice-500/40 transition-all"
+                  >
+                    <div className="text-3xl">{record.caseIcon}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="font-body text-ice-100 font-medium truncate">
+                          {record.caseTitle}
+                        </span>
+                        <span
+                          className={`px-2 py-0.5 text-xs rounded-full border ${difficultyBadge[record.caseDifficulty]}`}
+                        >
+                          {difficultyLabel[record.caseDifficulty]}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm">
+                        <span className="text-ice-300/50">{formatDate(record.playedAt)}</span>
+                        <span className={`font-orbitron font-bold ${getScoreColor(record.score.totalScore)}`}>
+                          {record.score.totalScore.toFixed(1)} 分
+                        </span>
+                        <span className={`px-2 py-0.5 rounded bg-cold-dark font-orbitron font-bold ${color}`}>
+                          {grade}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleReplay(record.id)}
+                      className="btn-outline flex items-center gap-1.5 text-sm px-3 py-1.5"
+                    >
+                      <Eye size={15} />
+                      查看复盘
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </motion.div>
       </div>
 
       <AnimatePresence>

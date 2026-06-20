@@ -75,6 +75,7 @@ export const cases: ColdChainCase[] = [
         isCritical: true,
         isDistraction: false,
         impactOnOptimal: "提示温度正在升高，需尽快采取行动",
+        responseMode: "action",
         actionType: "stop",
       },
       {
@@ -84,6 +85,7 @@ export const cases: ColdChainCase[] = [
         isCritical: true,
         isDistraction: false,
         impactOnOptimal: "说明堵车不会持续太久，短期补冷即可",
+        responseMode: "context",
       },
       {
         id: "clue-v3",
@@ -92,6 +94,7 @@ export const cases: ColdChainCase[] = [
         isCritical: true,
         isDistraction: false,
         impactOnOptimal: "提供最近的补冷选项",
+        responseMode: "action",
         actionType: "recharge",
       },
       {
@@ -109,6 +112,7 @@ export const cases: ColdChainCase[] = [
         isCritical: true,
         isDistraction: false,
         impactOnOptimal: "确认仅靠制冷机组不够，需辅助措施",
+        responseMode: "action",
         actionType: "dry_ice",
       },
       {
@@ -223,6 +227,7 @@ export const cases: ColdChainCase[] = [
         isCritical: true,
         isDistraction: false,
         impactOnOptimal: "核心线索，压缩机可能通过旁路重启",
+        responseMode: "action",
         actionType: "stop",
       },
       {
@@ -232,6 +237,7 @@ export const cases: ColdChainCase[] = [
         isCritical: true,
         isDistraction: false,
         impactOnOptimal: "确认可以尝试旁路重启，这是最优解的关键",
+        responseMode: "action",
         actionType: "stop",
       },
       {
@@ -241,6 +247,7 @@ export const cases: ColdChainCase[] = [
         isCritical: true,
         isDistraction: false,
         impactOnOptimal: "强调时间紧迫性，30分钟内必须降温",
+        responseMode: "action",
         actionType: "dry_ice",
       },
       {
@@ -258,6 +265,7 @@ export const cases: ColdChainCase[] = [
         isCritical: true,
         isDistraction: false,
         impactOnOptimal: "提供冷库备选方案，作为旁路重启失败的兜底",
+        responseMode: "action",
         actionType: "cold_storage",
       },
       {
@@ -267,6 +275,7 @@ export const cases: ColdChainCase[] = [
         isCritical: false,
         isDistraction: true,
         impactOnOptimal: "分散注意力，当前应以应急处置为优先",
+        responseMode: "action",
         actionType: "communication",
       },
       {
@@ -276,6 +285,7 @@ export const cases: ColdChainCase[] = [
         isCritical: true,
         isDistraction: false,
         impactOnOptimal: "最后警告，如之前未采取行动则必须紧急处置",
+        responseMode: "action",
         actionType: "dry_ice",
       },
     ],
@@ -383,6 +393,7 @@ export const cases: ColdChainCase[] = [
         isCritical: true,
         isDistraction: false,
         impactOnOptimal: "确认制冷机组已无法单独维持温度",
+        responseMode: "action",
         actionType: "stop",
       },
       {
@@ -392,6 +403,7 @@ export const cases: ColdChainCase[] = [
         isCritical: false,
         isDistraction: true,
         impactOnOptimal: "施加配送压力，但温度安全优先于配送时效",
+        responseMode: "action",
         actionType: "communication",
       },
       {
@@ -401,6 +413,7 @@ export const cases: ColdChainCase[] = [
         isCritical: true,
         isDistraction: false,
         impactOnOptimal: "最优解关键线索，就近冷库暂存",
+        responseMode: "action",
         actionType: "cold_storage",
       },
       {
@@ -410,6 +423,7 @@ export const cases: ColdChainCase[] = [
         isCritical: true,
         isDistraction: false,
         impactOnOptimal: "配送时间可延后，降低时间压力",
+        responseMode: "action",
         actionType: "communication",
       },
       {
@@ -427,6 +441,7 @@ export const cases: ColdChainCase[] = [
         isCritical: true,
         isDistraction: false,
         impactOnOptimal: "提供短期降温方案，但性价比不高",
+        responseMode: "action",
         actionType: "dry_ice",
       },
       {
@@ -444,6 +459,7 @@ export const cases: ColdChainCase[] = [
         isCritical: true,
         isDistraction: false,
         impactOnOptimal: "正式授权调整配送计划，消除时间压力顾虑",
+        responseMode: "action",
         actionType: "communication",
       },
     ],

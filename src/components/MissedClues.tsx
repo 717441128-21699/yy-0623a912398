@@ -1,6 +1,6 @@
 import { CaseClue } from '@/types'
 import { motion } from 'framer-motion'
-import { AlertTriangle, CheckCircle, AlertCircle } from 'lucide-react'
+import { AlertTriangle, CheckCircle, AlertCircle, Info } from 'lucide-react'
 
 interface Props {
   clues: CaseClue[]
@@ -11,7 +11,11 @@ interface Props {
 export default function MissedClues({ clues, revealedClues, actedUponClues }: Props) {
   const criticalClues = clues.filter((c) => c.isCritical && !c.isDistraction)
   const undiscovered = criticalClues.filter((c) => !revealedClues.includes(c.id))
-  const unhandled = criticalClues.filter(
+
+  const actionClues = criticalClues.filter(
+    (c) => c.responseMode === 'action' || (c.actionType && c.responseMode !== 'context')
+  )
+  const unhandled = actionClues.filter(
     (c) => revealedClues.includes(c.id) && !actedUponClues.includes(c.id)
   )
 
@@ -26,6 +30,14 @@ export default function MissedClues({ clues, revealedClues, actedUponClues }: Pr
 
   return (
     <div className="space-y-6">
+      <div className="flex items-start gap-2 p-3 rounded-lg bg-ice-900/50 border border-ice-700/50">
+        <Info className="w-4 h-4 text-ice-400 mt-0.5 shrink-0" />
+        <div className="flex-1 min-w-0 text-xs font-body text-ice-300 space-y-1">
+          <p><span className="font-medium text-ice-200">背景信息线索（路况、天气等）：</span>看到即纳入判断</p>
+          <p><span className="font-medium text-ice-200">操作线索（温度报警、资源建议等）：</span>需要执行对应操作</p>
+        </div>
+      </div>
+
       {undiscovered.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center gap-2 mb-3">

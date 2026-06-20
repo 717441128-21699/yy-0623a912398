@@ -21,6 +21,7 @@ export interface CaseClue {
   isCritical: boolean
   isDistraction: boolean
   impactOnOptimal: string
+  responseMode?: 'action' | 'context'
   actionType?: 'stop' | 'recharge' | 'dry_ice' | 'cold_storage' | 'communication'
 }
 
@@ -83,4 +84,20 @@ export interface GameScore {
   resourceWaste: number
   communicationCompleteness: number
   totalScore: number
+}
+
+export interface PracticeRecord {
+  id: string
+  caseId: string
+  caseTitle: string
+  caseIcon: string
+  caseDifficulty: 'beginner' | 'intermediate' | 'advanced'
+  playedAt: number
+  score: GameScore
+  playerDecisions: PlayerDecision[]
+  revealedClues: string[]
+  actedUponClues: string[]
+  tempHistory: { time: number; temp: number }[]
+  finalTemp: number
+  communications: CommunicationEntry[]
 }

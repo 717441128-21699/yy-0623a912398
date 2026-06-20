@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { ColdChainCase, PlayerDecision, CommunicationEntry, GameScore } from '@/types'
+import { ColdChainCase, PlayerDecision, CommunicationEntry, GameScore, PracticeRecord } from '@/types'
 import { cases } from '@/data/cases'
 
 type GamePhase = 'selection' | 'dispatch' | 'review'
@@ -8,6 +8,9 @@ interface TempRecord {
   time: number
   temp: number
 }
+
+const STORAGE_KEY = 'coldchain_practice_history'
+const MAX_HISTORY = 20
 
 interface GameState {
   allCases: ColdChainCase[]
@@ -24,6 +27,8 @@ interface GameState {
   isStopped: boolean
   gameScore: GameScore | null
   tempHistory: TempRecord[]
+  practiceHistory: PracticeRecord[]
+  replayingRecordId: string | null
 
   selectCase: (caseId: string) => void
   startGame: () => void
@@ -38,6 +43,10 @@ interface GameState {
   endGame: () => void
   resetGame: () => void
   calculateScore: () => GameScore
+  savePracticeRecord: () => void
+  loadHistoryFromStorage: () => void
+  clearHistory: () => void
+  replayHistory: (recordId: string) => void
 }
 
 function interpolateTempFromCurve(
@@ -64,6 +73,19 @@ function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
 
+function loadHistoryFromStorageInternal(): PracticeRecord[] {
+  try {
+    if (typeof window === 'undefined') return []
+    const raw = window.localStorage.getItem(STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    if (Array.isArray(parsed)) return parsed
+    return []
+  } catch {
+    return []
+  }
+}
+
 export const useGameStore = create<GameState>((set, get) => ({
   allCases: cases,
   currentCase: null,
@@ -79,6 +101,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   isStopped: false,
   gameScore: null,
   tempHistory: [],
+  practiceHistory: loadHistoryFromStorageInternal(),
+  replayingRecordId: null,
 
   selectCase: (caseId: string) => {
     const found = get().allCases.find((c) => c.id === caseId)
@@ -98,6 +122,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       isStopped: false,
       gameScore: null,
       tempHistory: [],
+      replayingRecordId: null,
     })
   },
 
@@ -125,6 +150,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       usedResources: {},
       isStopped: false,
       gameScore: null,
+      replayingRecordId: null,
     })
   },
 
@@ -341,6 +367,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         },
       ],
     })
+
+    get().savePracticeRecord()
   },
 
   resetGame: () => {
@@ -358,6 +386,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       isStopped: false,
       gameScore: null,
       tempHistory: [],
+      replayingRecordId: null,
     })
   },
 
@@ -403,17 +432,19 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     let communicationCompleteness = 0
     const criticalClues = caseData.clues.filter((c) => c.isCritical && !c.isDistraction)
-    const revealedCriticalCount = criticalClues.filter(
-      (c) => state.revealedClues.includes(c.id)
-    ).length
-    const actedUponCriticalCount = criticalClues.filter(
-      (c) => state.actedUponClues.includes(c.id)
-    ).length
-    if (criticalClues.length > 0) {
-      const revealRatio = revealedCriticalCount / criticalClues.length
-      const actionRatio = criticalClues.length > 0 ? actedUponCriticalCount / criticalClues.length : 0
-      communicationCompleteness = revealRatio * 30 + actionRatio * 70
-    }
+
+    const contextClues = criticalClues.filter(c => c.responseMode === 'context')
+    const actionClues = criticalClues.filter(c => c.responseMode === 'action' || (c.actionType && c.responseMode !== 'context'))
+
+    const revealedContextCount = contextClues.filter(c => state.revealedClues.includes(c.id)).length
+    const revealedActionCount = actionClues.filter(c => state.revealedClues.includes(c.id)).length
+    const actedUponActionCount = actionClues.filter(c => state.actedUponClues.includes(c.id)).length
+
+    const contextRatio = contextClues.length > 0 ? revealedContextCount / contextClues.length : 1
+    const actionRevealRatio = actionClues.length > 0 ? revealedActionCount / actionClues.length : 1
+    const actionActedRatio = actionClues.length > 0 ? actedUponActionCount / actionClues.length : 1
+
+    communicationCompleteness = contextRatio * 30 + actionRevealRatio * 20 + actionActedRatio * 50
 
     const totalScore =
       (responseSpeed + temperatureRecovery + resourceWaste + communicationCompleteness) / 4
@@ -426,4 +457,78 @@ export const useGameStore = create<GameState>((set, get) => ({
       totalScore: Math.round(totalScore * 10) / 10,
     }
   },
+
+  savePracticeRecord: () => {
+    const state = get()
+    if (!state.currentCase || !state.gameScore || state.replayingRecordId) return
+
+    const record: PracticeRecord = {
+      id: generateId(),
+      caseId: state.currentCase.id,
+      caseTitle: state.currentCase.title,
+      caseIcon: state.currentCase.icon,
+      caseDifficulty: state.currentCase.difficulty,
+      playedAt: Date.now(),
+      score: state.gameScore,
+      playerDecisions: state.playerDecisions,
+      revealedClues: state.revealedClues,
+      actedUponClues: state.actedUponClues,
+      tempHistory: state.tempHistory,
+      finalTemp: state.currentTemp,
+      communications: state.communications,
+    }
+
+    const newHistory = [record, ...state.practiceHistory].slice(0, MAX_HISTORY)
+    set({ practiceHistory: newHistory })
+
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(newHistory))
+    } catch {
+      // ignore
+    }
+  },
+
+  loadHistoryFromStorage: () => {
+    const history = loadHistoryFromStorageInternal()
+    set({ practiceHistory: history })
+  },
+
+  clearHistory: () => {
+    set({ practiceHistory: [] })
+    try {
+      window.localStorage.removeItem(STORAGE_KEY)
+    } catch {
+      // ignore
+    }
+  },
+
+  replayHistory: (recordId: string) => {
+    const state = get()
+    const record = state.practiceHistory.find((r) => r.id === recordId)
+    if (!record) return
+
+    const foundCase = state.allCases.find((c) => c.id === record.caseId)
+    if (!foundCase) return
+
+    set({
+      currentCase: foundCase,
+      gamePhase: 'review',
+      timeRemaining: 0,
+      isTimerRunning: false,
+      currentTemp: record.finalTemp,
+      playerDecisions: record.playerDecisions,
+      communications: record.communications,
+      revealedClues: record.revealedClues,
+      actedUponClues: record.actedUponClues,
+      usedResources: {},
+      isStopped: false,
+      gameScore: record.score,
+      tempHistory: record.tempHistory,
+      replayingRecordId: record.id,
+    })
+  },
 }))
+
+if (typeof window !== 'undefined') {
+  useGameStore.getState().loadHistoryFromStorage()
+}

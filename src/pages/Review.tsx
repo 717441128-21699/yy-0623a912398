@@ -7,7 +7,9 @@ import RadarChart from '@/components/RadarChart'
 import DecisionTimeline from '@/components/DecisionTimeline'
 import MissedClues from '@/components/MissedClues'
 import OptimalComparison from '@/components/OptimalComparison'
-import { RotateCcw, Thermometer, Star } from 'lucide-react'
+import { RotateCcw, Star, Download, History } from 'lucide-react'
+import { generateReportHTML } from '@/utils/exportReport'
+import { PracticeRecord } from '@/types'
 
 const sectionVariants = {
   hidden: { opacity: 0, y: 30 },
@@ -27,6 +29,9 @@ export default function Review() {
     revealedClues,
     actedUponClues,
     tempHistory,
+    communications,
+    currentTemp,
+    replayingRecordId,
     resetGame,
   } = useGameStore()
 
@@ -45,9 +50,64 @@ export default function Review() {
     navigate('/')
   }
 
+  const handleExportReport = () => {
+    let record: PracticeRecord
+
+    if (replayingRecordId) {
+      const found = useGameStore.getState().practiceHistory.find((r) => r.id === replayingRecordId)
+      if (!found) return
+      record = found
+    } else {
+      record = {
+        id: `temp-${Date.now()}`,
+        caseId: currentCase.id,
+        caseTitle: currentCase.title,
+        caseIcon: currentCase.icon,
+        caseDifficulty: currentCase.difficulty,
+        playedAt: Date.now(),
+        score: gameScore,
+        playerDecisions,
+        revealedClues,
+        actedUponClues,
+        tempHistory,
+        finalTemp: currentTemp,
+        communications,
+      }
+    }
+
+    const html = generateReportHTML(record, currentCase)
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `冷链复盘报告_${currentCase.title}_${new Date().toISOString().slice(0, 10)}.html`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div className="min-h-screen bg-cold-dark py-8 px-4">
       <div className="max-w-4xl mx-auto space-y-8">
+        {replayingRecordId && (
+          <motion.div
+            className="card-base p-4 flex items-center justify-between"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+          >
+            <div className="flex items-center gap-2 text-ice-300">
+              <History size={18} className="text-ice-400" />
+              <span>
+                这是历史复盘记录，ID: <code className="bg-cold-dark px-2 py-0.5 rounded text-xs">{replayingRecordId.slice(0, 8)}</code>
+              </span>
+            </div>
+            <button onClick={handleReset} className="btn-outline flex items-center gap-1.5 text-sm px-4 py-1.5">
+              <RotateCcw className="w-4 h-4" />
+              返回练习
+            </button>
+          </motion.div>
+        )}
+
         <motion.div
           className="text-center"
           initial={{ opacity: 0, y: -20 }}
@@ -130,12 +190,16 @@ export default function Review() {
         </motion.section>
 
         <motion.div
-          className="text-center pb-8"
+          className="flex items-center justify-center gap-4 pb-8"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.8 }}
         >
-          <button onClick={handleReset} className="btn-ice flex items-center gap-2 mx-auto text-base">
+          <button onClick={handleExportReport} className="btn-outline flex items-center gap-2 text-base">
+            <Download className="w-4 h-4" />
+            导出报告
+          </button>
+          <button onClick={handleReset} className="btn-ice flex items-center gap-2 text-base">
             <RotateCcw className="w-4 h-4" />
             返回选择新案例
           </button>
