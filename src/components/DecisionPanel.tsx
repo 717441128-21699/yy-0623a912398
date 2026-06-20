@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Power, Play, Radio, Snowflake, Warehouse, MapPin, DollarSign } from 'lucide-react'
-import type { PlayerDecision, CaseResource } from '@/types'
+import { Power, Play, Radio, Snowflake, Warehouse, MapPin, DollarSign, MessageSquare } from 'lucide-react'
+import type { PlayerDecision, CaseResource, CaseClue } from '@/types'
 
 interface DecisionPanelProps {
   onDecision: (decision: PlayerDecision) => void
@@ -10,15 +10,19 @@ interface DecisionPanelProps {
   onResumeTruck: () => void
   resources: CaseResource[]
   usedResources: Record<string, number>
+  clues: CaseClue[]
+  revealedClues: string[]
+  actedUponClues: string[]
 }
 
-type TabKey = 'stop' | 'recharge' | 'dry_ice' | 'cold_storage'
+type TabKey = 'stop' | 'recharge' | 'dry_ice' | 'cold_storage' | 'communication'
 
 const tabs: { key: TabKey; label: string; icon: React.ReactNode }[] = [
   { key: 'stop', label: '停车控制', icon: <Power size={14} /> },
   { key: 'recharge', label: '补冷站联系', icon: <Radio size={14} /> },
   { key: 'dry_ice', label: '干冰投放', icon: <Snowflake size={14} /> },
   { key: 'cold_storage', label: '冷库转仓', icon: <Warehouse size={14} /> },
+  { key: 'communication', label: '客户沟通', icon: <MessageSquare size={14} /> },
 ]
 
 function generateId(): string {
@@ -32,6 +36,9 @@ export default function DecisionPanel({
   onResumeTruck,
   resources,
   usedResources,
+  clues,
+  revealedClues,
+  actedUponClues,
 }: DecisionPanelProps) {
   const [activeTab, setActiveTab] = useState<TabKey>('stop')
   const [dryIceAmount, setDryIceAmount] = useState(0)
@@ -39,6 +46,39 @@ export default function DecisionPanel({
   const rechargePoints = resources.filter((r) => r.type === 'recharge_point')
   const coldStorages = resources.filter((r) => r.type === 'cold_storage')
   const dryIceResource = resources.find((r) => r.type === 'dry_ice')
+
+  const availableCommunications = clues.filter(
+    (c) =>
+      c.actionType === 'communication' &&
+      revealedClues.includes(c.id) &&
+      !actedUponClues.includes(c.id)
+  )
+
+  const getCommunicationDescription = (clue: CaseClue): string => {
+    if (clue.content.includes('收货') || clue.content.includes('门店')) {
+      return '确认收货时间'
+    }
+    if (clue.content.includes('总部') || clue.content.includes('调度')) {
+      return '汇报总部'
+    }
+    if (clue.content.includes('保险') || clue.content.includes('理赔')) {
+      return '确认保险理赔'
+    }
+    return '沟通确认'
+  }
+
+  const handleCommunication = (clue: CaseClue) => {
+    const description = getCommunicationDescription(clue)
+    onDecision({
+      id: generateId(),
+      type: 'communication',
+      description: `${description}：${clue.content.slice(0, 20)}...`,
+      timestamp: Date.now(),
+      elapsedTime: 0,
+      tempImpact: 0,
+      costImpact: 0,
+    })
+  }
 
   const handleRecharge = (res: CaseResource) => {
     onDecision({
@@ -257,6 +297,35 @@ export default function DecisionPanel({
               })}
               {coldStorages.length === 0 && (
                 <div className="text-center text-ice-400 text-sm py-4">无可用冷库</div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'communication' && (
+            <div className="flex flex-col gap-2">
+              {availableCommunications.map((clue) => (
+                <div
+                  key={clue.id}
+                  className="card-base p-2.5 flex items-center justify-between"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm text-ice-100 font-body truncate">
+                      {getCommunicationDescription(clue)}
+                    </div>
+                    <div className="text-xs text-ice-400 mt-0.5 truncate">
+                      {clue.content}
+                    </div>
+                  </div>
+                  <button
+                    className="btn-outline text-xs px-3 py-1 ml-2"
+                    onClick={() => handleCommunication(clue)}
+                  >
+                    沟通
+                  </button>
+                </div>
+              ))}
+              {availableCommunications.length === 0 && (
+                <div className="text-center text-ice-400 text-sm py-4">暂无待处理的沟通事项</div>
               )}
             </div>
           )}

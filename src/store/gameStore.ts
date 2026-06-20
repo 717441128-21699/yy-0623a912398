@@ -19,6 +19,7 @@ interface GameState {
   playerDecisions: PlayerDecision[]
   communications: CommunicationEntry[]
   revealedClues: string[]
+  actedUponClues: string[]
   usedResources: Record<string, number>
   isStopped: boolean
   gameScore: GameScore | null
@@ -28,6 +29,7 @@ interface GameState {
   startGame: () => void
   makeDecision: (decision: PlayerDecision) => void
   revealClue: (clueId: string) => void
+  actOnClue: (clueId: string) => void
   stopTruck: () => void
   resumeTruck: () => void
   useResource: (resourceId: string, amount: number) => void
@@ -72,6 +74,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   playerDecisions: [],
   communications: [],
   revealedClues: [],
+  actedUponClues: [],
   usedResources: {},
   isStopped: false,
   gameScore: null,
@@ -90,6 +93,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       playerDecisions: [],
       communications: [],
       revealedClues: [],
+      actedUponClues: [],
       usedResources: {},
       isStopped: false,
       gameScore: null,
@@ -117,6 +121,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         },
       ],
       revealedClues: [],
+      actedUponClues: [],
       usedResources: {},
       isStopped: false,
       gameScore: null,
@@ -134,23 +139,52 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     const newTemp = state.currentTemp + decision.tempImpact
 
+    const newCommunications = [...state.communications, {
+      id: generateId(),
+      type: 'decision' as const,
+      message: `决策：${decision.description}（温度影响 ${decision.tempImpact > 0 ? '+' : ''}${decision.tempImpact}°C）`,
+      timestamp: Date.now(),
+    }]
+
+    const newActedUponClues = [...state.actedUponClues]
+    const matchingClues = state.currentCase.clues.filter(
+      (c) =>
+        c.isCritical &&
+        !c.isDistraction &&
+        c.actionType === decision.type &&
+        state.revealedClues.includes(c.id) &&
+        !state.actedUponClues.includes(c.id)
+    )
+
+    for (const clue of matchingClues) {
+      newActedUponClues.push(clue.id)
+      newCommunications.push({
+        id: generateId(),
+        type: 'info' as const,
+        message: `已根据线索采取行动：${clue.content}`,
+        timestamp: Date.now(),
+      })
+    }
+
     set({
       playerDecisions: [...state.playerDecisions, decisionWithElapsed],
       currentTemp: newTemp,
-      communications: [
-        ...state.communications,
-        {
-          id: generateId(),
-          type: 'decision',
-          message: `决策：${decision.description}（温度影响 ${decision.tempImpact > 0 ? '+' : ''}${decision.tempImpact}°C）`,
-          timestamp: Date.now(),
-        },
-      ],
+      communications: newCommunications,
+      actedUponClues: newActedUponClues,
     })
 
     if (decision.resourceId && decision.resourceAmount) {
       get().useResource(decision.resourceId, decision.resourceAmount)
     }
+  },
+
+  actOnClue: (clueId: string) => {
+    const state = get()
+    if (state.actedUponClues.includes(clueId)) return
+
+    set({
+      actedUponClues: [...state.actedUponClues, clueId],
+    })
   },
 
   revealClue: (clueId: string) => {
@@ -178,17 +212,15 @@ export const useGameStore = create<GameState>((set, get) => ({
     const state = get()
     if (state.isStopped || state.gamePhase !== 'dispatch') return
 
-    set({
-      isStopped: true,
-      communications: [
-        ...state.communications,
-        {
-          id: generateId(),
-          type: 'decision',
-          message: '车辆已停车检查，温度上升速度降低',
-          timestamp: Date.now(),
-        },
-      ],
+    set({ isStopped: true })
+    get().makeDecision({
+      id: generateId(),
+      type: 'stop',
+      description: '安全停车检查，温度上升速率降低',
+      timestamp: Date.now(),
+      elapsedTime: 0,
+      tempImpact: 0,
+      costImpact: 0,
     })
   },
 
@@ -196,17 +228,15 @@ export const useGameStore = create<GameState>((set, get) => ({
     const state = get()
     if (!state.isStopped || state.gamePhase !== 'dispatch') return
 
-    set({
-      isStopped: false,
-      communications: [
-        ...state.communications,
-        {
-          id: generateId(),
-          type: 'decision',
-          message: '车辆恢复行驶，温度上升速度恢复',
-          timestamp: Date.now(),
-        },
-      ],
+    set({ isStopped: false })
+    get().makeDecision({
+      id: generateId(),
+      type: 'stop',
+      description: '恢复车辆行驶',
+      timestamp: Date.now(),
+      elapsedTime: 0,
+      tempImpact: 0,
+      costImpact: 0,
     })
   },
 
@@ -256,7 +286,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       const decay = Math.max(0.1, 1 - (Date.now() - decision.timestamp) / 10000)
       if (decision.type === 'dry_ice') {
         tempAdjustment += decision.tempImpact * decay * 0.15
-      } else if (decision.type === 'recharge' || decision.type === 'recharge_point') {
+      } else if (decision.type === 'recharge') {
         tempAdjustment += decision.tempImpact * decay * 0.1
       } else if (decision.type === 'cold_storage') {
         const targetDiff = state.currentCase!.targetTemp - state.currentTemp
@@ -323,6 +353,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       playerDecisions: [],
       communications: [],
       revealedClues: [],
+      actedUponClues: [],
       usedResources: {},
       isStopped: false,
       gameScore: null,
@@ -375,16 +406,13 @@ export const useGameStore = create<GameState>((set, get) => ({
     const revealedCriticalCount = criticalClues.filter(
       (c) => state.revealedClues.includes(c.id)
     ).length
-    const actedUponCriticalCount = criticalClues.filter((c) => {
-      if (!state.revealedClues.includes(c.id)) return false
-      return state.playerDecisions.some(
-        (d) => d.type === 'dry_ice' || d.type === 'recharge' || d.type === 'cold_storage' || d.type === 'stop'
-      )
-    }).length
+    const actedUponCriticalCount = criticalClues.filter(
+      (c) => state.actedUponClues.includes(c.id)
+    ).length
     if (criticalClues.length > 0) {
       const revealRatio = revealedCriticalCount / criticalClues.length
-      const actionRatio = revealedCriticalCount > 0 ? actedUponCriticalCount / revealedCriticalCount : 0
-      communicationCompleteness = revealRatio * 60 + actionRatio * 40
+      const actionRatio = criticalClues.length > 0 ? actedUponCriticalCount / criticalClues.length : 0
+      communicationCompleteness = revealRatio * 30 + actionRatio * 70
     }
 
     const totalScore =

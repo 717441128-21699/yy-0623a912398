@@ -24,6 +24,7 @@ export default function Dispatch() {
     isStopped,
     communications,
     revealedClues,
+    actedUponClues,
     usedResources,
     tick,
     makeDecision,
@@ -118,6 +119,9 @@ export default function Dispatch() {
           onResumeTruck={resumeTruck}
           resources={currentCase.availableResources}
           usedResources={usedResources}
+          clues={currentCase.clues}
+          revealedClues={revealedClues}
+          actedUponClues={actedUponClues}
         />
       </div>
 

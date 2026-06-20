@@ -6,6 +6,7 @@ interface Props {
   decisions: PlayerDecision[]
   clues: CaseClue[]
   revealedClues: string[]
+  actedUponClues: string[]
   totalTime: number
   tempHistory: { time: number; temp: number }[]
   targetTemp: number
@@ -15,6 +16,7 @@ export default function DecisionTimeline({
   decisions,
   clues,
   revealedClues,
+  actedUponClues,
   totalTime,
   tempHistory,
   targetTemp,
@@ -41,6 +43,12 @@ export default function DecisionTimeline({
 
   const criticalClues = clues.filter((c) => c.isCritical && !c.isDistraction)
   const missedClues = criticalClues.filter((c) => !revealedClues.includes(c.id))
+  const revealedButUnhandled = criticalClues.filter(
+    (c) => revealedClues.includes(c.id) && !actedUponClues.includes(c.id)
+  )
+  const revealedAndHandled = criticalClues.filter(
+    (c) => revealedClues.includes(c.id) && actedUponClues.includes(c.id)
+  )
 
   function getTempColor(temp: number): string {
     const diff = Math.abs(temp - targetTemp)
@@ -123,10 +131,24 @@ export default function DecisionTimeline({
           )
         })}
 
-        {clues.filter((c) => revealedClues.includes(c.id)).map((c) => {
+        {revealedAndHandled.map((c) => {
           const x = toX(c.triggerTime)
           return (
-            <g key={`rc-${c.id}`}>
+            <g key={`rh-${c.id}`}>
+              <polygon
+                points={`${x},${timelineY - 8} ${x + 5},${timelineY} ${x},${timelineY + 8} ${x - 5},${timelineY}`}
+                fill="#00E676"
+                stroke="#0f1f38"
+                strokeWidth={1}
+              />
+            </g>
+          )
+        })}
+
+        {revealedButUnhandled.map((c) => {
+          const x = toX(c.triggerTime)
+          return (
+            <g key={`ru-${c.id}`}>
               <polygon
                 points={`${x},${timelineY - 8} ${x + 5},${timelineY} ${x},${timelineY + 8} ${x - 5},${timelineY}`}
                 fill="#FF6B35"
@@ -150,12 +172,15 @@ export default function DecisionTimeline({
         <text x={padX} y={tempBarY - 5} fill="#4de3ff" fontSize="9" fontFamily='"Noto Sans SC", sans-serif'>温度曲线</text>
       </svg>
 
-      <div className="flex gap-6 mt-2 text-xs font-body text-ice-300">
+      <div className="flex flex-wrap gap-4 mt-2 text-xs font-body text-ice-300">
         <span className="flex items-center gap-1">
           <span className="inline-block w-3 h-3 rounded-full bg-ice-500" /> 决策
         </span>
         <span className="flex items-center gap-1">
-          <span className="inline-block w-0 h-0 border-l-[5px] border-r-[5px] border-b-[8px] border-l-transparent border-r-transparent border-b-warn" /> 已发现线索
+          <span className="inline-block w-0 h-0 border-l-[5px] border-r-[5px] border-b-[8px] border-l-transparent border-r-transparent border-b-safe" /> 已处理线索
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block w-0 h-0 border-l-[5px] border-r-[5px] border-b-[8px] border-l-transparent border-r-transparent border-b-warn" /> 未处理线索
         </span>
         <span className="flex items-center gap-1">
           <span className="text-danger font-bold text-sm">×</span> 错失线索

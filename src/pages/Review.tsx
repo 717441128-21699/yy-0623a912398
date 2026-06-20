@@ -25,6 +25,7 @@ export default function Review() {
     gameScore,
     playerDecisions,
     revealedClues,
+    actedUponClues,
     tempHistory,
     resetGame,
   } = useGameStore()
@@ -93,6 +94,7 @@ export default function Review() {
             decisions={playerDecisions}
             clues={currentCase.clues}
             revealedClues={revealedClues}
+            actedUponClues={actedUponClues}
             totalTime={totalTime}
             tempHistory={tempHistory}
             targetTemp={currentCase.targetTemp}
@@ -109,6 +111,7 @@ export default function Review() {
           <MissedClues
             clues={currentCase.clues}
             revealedClues={revealedClues}
+            actedUponClues={actedUponClues}
           />
         </motion.section>
 

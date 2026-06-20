@@ -21,11 +21,12 @@ export interface CaseClue {
   isCritical: boolean
   isDistraction: boolean
   impactOnOptimal: string
+  actionType?: 'stop' | 'recharge' | 'dry_ice' | 'cold_storage' | 'communication'
 }
 
 export interface OptimalDecision {
   time: number
-  type: string
+  type: 'stop' | 'recharge' | 'dry_ice' | 'cold_storage' | 'communication'
   description: string
   tempImpact: number
   costImpact: number
@@ -59,7 +60,7 @@ export interface ColdChainCase {
 
 export interface PlayerDecision {
   id: string
-  type: string
+  type: 'stop' | 'recharge' | 'dry_ice' | 'cold_storage' | 'communication'
   description: string
   timestamp: number
   elapsedTime: number
