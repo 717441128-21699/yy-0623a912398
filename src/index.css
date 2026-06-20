@@ -1,0 +1,98 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: "Noto Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  background: #0A1628;
+  color: #e6fbff;
+  overflow-x: hidden;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0f1f38;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1a3a5c;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #00D4FF;
+}
+
+@layer components {
+  .glow-text {
+    text-shadow: 0 0 10px rgba(0, 212, 255, 0.5), 0 0 20px rgba(0, 212, 255, 0.3);
+  }
+
+  .glow-border {
+    box-shadow: 0 0 8px rgba(0, 212, 255, 0.3), inset 0 0 8px rgba(0, 212, 255, 0.1);
+  }
+
+  .card-base {
+    @apply bg-cold-card border border-cold-border rounded-lg;
+    transition: all 0.3s ease;
+  }
+
+  .card-base:hover {
+    @apply border-ice-500;
+    box-shadow: 0 0 12px rgba(0, 212, 255, 0.2);
+  }
+
+  .btn-ice {
+    @apply bg-ice-500 text-ice-900 font-bold rounded-lg px-6 py-2.5;
+    box-shadow: 0 0 12px rgba(0, 212, 255, 0.4);
+    transition: all 0.3s ease;
+  }
+
+  .btn-ice:hover {
+    @apply bg-ice-400;
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.6);
+    transform: translateY(-1px);
+  }
+
+  .btn-ice:active {
+    transform: translateY(0);
+  }
+
+  .btn-outline {
+    @apply border border-ice-500 text-ice-500 rounded-lg px-6 py-2.5;
+    transition: all 0.3s ease;
+  }
+
+  .btn-outline:hover {
+    @apply bg-ice-500/10;
+    box-shadow: 0 0 12px rgba(0, 212, 255, 0.2);
+  }
+
+  .btn-danger {
+    @apply bg-danger text-white font-bold rounded-lg px-6 py-2.5;
+    box-shadow: 0 0 12px rgba(255, 23, 68, 0.4);
+    transition: all 0.3s ease;
+  }
+
+  .btn-danger:hover {
+    box-shadow: 0 0 20px rgba(255, 23, 68, 0.6);
+    transform: translateY(-1px);
+  }
+
+  .panel-base {
+    @apply bg-cold-panel border border-cold-border rounded-xl;
+  }
+}
