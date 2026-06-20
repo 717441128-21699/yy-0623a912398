@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { PracticeRecord, ColdChainCase, GameScore } from '@/types'
 import { generateSummaryReportHTML } from '@/utils/exportReport'
+import { analyzeMistakes, MistakeSummary } from '@/utils/analyzeMistakes'
 
 type Difficulty = 'all' | 'beginner' | 'intermediate' | 'advanced'
 
@@ -68,27 +69,14 @@ function formatDate(ts: number): string {
 
 function getTopMistake(record: PracticeRecord, caseData: ColdChainCase | undefined): string {
   if (!caseData) return '暂无数据'
-  
-  const missedClues = caseData.clues.filter(
-    (c) => c.isCritical && !c.isDistraction && !record.revealedClues.includes(c.id)
-  )
-  const revealedNotActed = caseData.clues.filter(
-    (c) => c.isCritical && !c.isDistraction && record.revealedClues.includes(c.id) && !record.actedUponClues.includes(c.id)
-  )
+  const mistakes = analyzeMistakes(record, caseData)
+  if (mistakes.length === 0) return '表现良好'
+  return mistakes[0].label
+}
 
-  if (missedClues.length > 0) {
-    return `遗漏 ${missedClues.length} 条关键线索`
-  }
-  if (revealedNotActed.length > 0) {
-    return `${revealedNotActed.length} 条线索未处理`
-  }
-  if (record.score.resourceWaste < 60) {
-    return '资源利用效率低'
-  }
-  if (record.score.responseSpeed < 60) {
-    return '响应速度较慢'
-  }
-  return '表现良好'
+function getMistakeBadgeClass(severity: MistakeSummary['severity']): string {
+  if (severity === 'high') return 'border-danger/50 text-danger bg-danger/10'
+  return 'border-warn/50 text-warn bg-warn/10'
 }
 
 const dimensions: { key: keyof Omit<GameScore, 'totalScore'>; label: string }[] = [
@@ -180,13 +168,38 @@ export default function TeacherDashboard() {
     const caseData = allCases.find((c) => c.id === caseId)
     if (!caseData) return
     
-    const records = practiceHistory.filter((r) => r.caseId === caseId)
+    const records = filteredRecords.filter((r) => r.caseId === caseId)
+    if (records.length === 0) {
+      alert('当前筛选条件下没有该案例的练习记录，无法生成报告。请调整筛选条件后重试。')
+      return
+    }
     const html = generateSummaryReportHTML(records, caseData)
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `案例汇总报告_${caseData.title}_${new Date().toISOString().slice(0, 10)}.html`
+    a.download = `案例汇总报告_${caseData.title}_${new Date().toISOString().slice(0, 10)}_${records.length}条.html`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleExportFilteredSummary = () => {
+    if (filteredRecords.length === 0) {
+      alert('当前筛选条件下没有练习记录，无法生成报告。请调整筛选条件后重试。')
+      return
+    }
+    const caseId = filteredRecords[0].caseId
+    const caseData = allCases.find((c) => c.id === caseId)
+    if (!caseData || filteredRecords.some((r) => r.caseId !== caseId)) {
+      alert('请先筛选到单个案例再导出案例汇总报告。')
+      return
+    }
+    const html = generateSummaryReportHTML(filteredRecords, caseData)
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `案例汇总报告_${caseData.title}_${new Date().toISOString().slice(0, 10)}_${filteredRecords.length}条.html`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -315,13 +328,28 @@ export default function TeacherDashboard() {
 
               {selectedCase !== 'all' && (
                 <div className="mt-5 pt-5 border-t border-cold-border">
-                  <button
-                    onClick={() => handleExportCaseSummary(selectedCase)}
-                    className="w-full btn-outline flex items-center justify-center gap-2 text-sm py-2"
-                  >
-                    <Download size={16} />
-                    导出案例汇总
-                  </button>
+                  {(() => {
+                    const count = filteredRecords.filter((r) => r.caseId === selectedCase).length
+                    return (
+                      <>
+                        <p className="text-xs text-ice-300/50 mb-3">
+                          当前筛选下共 {count} 条该案例记录
+                        </p>
+                        <button
+                          onClick={handleExportFilteredSummary}
+                          disabled={count === 0}
+                          className={`w-full flex items-center justify-center gap-2 text-sm py-2 rounded-lg border transition-all ${
+                            count === 0
+                              ? 'border-cold-border text-ice-300/30 cursor-not-allowed opacity-50'
+                              : 'btn-outline'
+                          }`}
+                        >
+                          <Download size={16} />
+                          {count > 0 ? `导出案例汇总（${count}条）` : '暂无该案例记录'}
+                        </button>
+                      </>
+                    )
+                  })()}
                 </div>
               )}
             </div>
@@ -364,7 +392,7 @@ export default function TeacherDashboard() {
                     {filteredRecords.map((record) => {
                       const { grade, color, bgColor } = getGrade(record.score.totalScore)
                       const caseData = allCases.find((c) => c.id === record.caseId)
-                      const topMistake = getTopMistake(record, caseData)
+                      const mistakes = caseData ? analyzeMistakes(record, caseData).slice(0, 2) : []
                       const isSelected = selectedRecords.includes(record.id)
 
                       return (
@@ -399,10 +427,28 @@ export default function TeacherDashboard() {
                             </div>
                             <div className="flex items-center gap-4 text-sm">
                               <span className="text-ice-300/50">{formatDate(record.playedAt)}</span>
-                              <span className="text-ice-300/50 flex items-center gap-1">
-                                <AlertTriangle size={12} />
-                                {topMistake}
-                              </span>
+                              {mistakes.length > 0 ? (
+                                <div className="flex flex-wrap gap-1.5">
+                                  {mistakes.map((m) => (
+                                    <span
+                                      key={m.type}
+                                      className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full border ${getMistakeBadgeClass(m.severity)}`}
+                                    >
+                                      {m.severity === 'high' ? (
+                                        <AlertTriangle size={10} />
+                                      ) : (
+                                        <AlertTriangle size={10} />
+                                      )}
+                                      {m.label}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-safe/70 flex items-center gap-1">
+                                  <CheckCircle size={12} />
+                                  表现良好
+                                </span>
+                              )}
                             </div>
                           </div>
 
@@ -542,6 +588,96 @@ export default function TeacherDashboard() {
                           )
                         })}
                       </div>
+                    </div>
+
+                    <div className="mb-6">
+                      <h3 className="text-sm font-medium text-ice-300/70 mb-4">主要失误变化</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        {comparisonRecords.map((record, idx) => {
+                          const caseData = allCases.find((c) => c.id === record.caseId)
+                          const mistakes = caseData ? analyzeMistakes(record, caseData) : []
+                          return (
+                            <div
+                              key={record.id}
+                              className={`p-4 rounded-xl border ${
+                                idx === 0
+                                  ? 'bg-cold-panel border-cold-border'
+                                  : 'bg-ice-500/5 border-ice-500/30'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between mb-3">
+                                <span className="text-xs text-ice-300/70">
+                                  {idx === 0 ? '较早记录 · 主要失误' : '较新记录 · 主要失误'}
+                                </span>
+                                <span className="text-xs text-ice-300/50">
+                                  {formatDate(record.playedAt)}
+                                </span>
+                              </div>
+                              {mistakes.length === 0 ? (
+                                <div className="flex items-center gap-2 text-safe text-sm">
+                                  <CheckCircle size={16} />
+                                  <span>无明显失误，表现良好</span>
+                                </div>
+                              ) : (
+                                <div className="space-y-2">
+                                  {mistakes.map((m) => (
+                                    <div
+                                      key={m.type}
+                                      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm ${getMistakeBadgeClass(m.severity)}`}
+                                    >
+                                      {m.severity === 'high' ? (
+                                        <AlertTriangle size={14} />
+                                      ) : (
+                                        <AlertTriangle size={14} />
+                                      )}
+                                      <span>{m.label}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                      {(() => {
+                        const caseData = allCases.find((c) => c.id === comparisonRecords[0].caseId)
+                        if (!caseData) return null
+                        const earlierMistakes = analyzeMistakes(comparisonRecords[0], caseData).map((m) => m.type)
+                        const laterMistakes = analyzeMistakes(comparisonRecords[1], caseData).map((m) => m.type)
+                        const resolved = earlierMistakes.filter((t) => !laterMistakes.includes(t))
+                        const newOnes = laterMistakes.filter((t) => !earlierMistakes.includes(t))
+                        const typeLabel: Record<string, string> = {
+                          slow_response: '响应速度慢',
+                          poor_temp_recovery: '温度恢复差',
+                          resource_waste: '资源浪费',
+                          missed_clue: '遗漏关键行动线索',
+                          unhandled_action_clue: '线索未处理',
+                        }
+                        if (resolved.length === 0 && newOnes.length === 0) return null
+                        return (
+                          <div className="mt-4 p-4 rounded-xl bg-cold-dark border border-cold-border">
+                            <div className="text-xs text-ice-300/70 mb-3">变化分析</div>
+                            <div className="space-y-2 text-sm">
+                              {resolved.length > 0 && (
+                                <div className="flex items-start gap-2">
+                                  <CheckCircle className="text-safe mt-0.5" size={14} />
+                                  <span className="text-safe">
+                                    已改进：{resolved.map((t) => typeLabel[t] || t).join('、')}
+                                  </span>
+                                </div>
+                              )}
+                              {newOnes.length > 0 && (
+                                <div className="flex items-start gap-2">
+                                  <AlertTriangle className="text-danger mt-0.5" size={14} />
+                                  <span className="text-danger">
+                                    新出现：{newOnes.map((t) => typeLabel[t] || t).join('、')}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })()}
                     </div>
 
                     <div>
