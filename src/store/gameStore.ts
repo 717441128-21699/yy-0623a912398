@@ -29,6 +29,7 @@ interface GameState {
   tempHistory: TempRecord[]
   practiceHistory: PracticeRecord[]
   replayingRecordId: string | null
+  reviewTargetSection: string | null
 
   selectCase: (caseId: string) => void
   startGame: () => void
@@ -46,7 +47,8 @@ interface GameState {
   savePracticeRecord: () => void
   loadHistoryFromStorage: () => void
   clearHistory: () => void
-  replayHistory: (recordId: string) => void
+  replayHistory: (recordId: string, targetSection?: string) => void
+  clearReviewTargetSection: () => void
 }
 
 function interpolateTempFromCurve(
@@ -103,6 +105,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   tempHistory: [],
   practiceHistory: loadHistoryFromStorageInternal(),
   replayingRecordId: null,
+  reviewTargetSection: null,
 
   selectCase: (caseId: string) => {
     const found = get().allCases.find((c) => c.id === caseId)
@@ -502,7 +505,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
   },
 
-  replayHistory: (recordId: string) => {
+  replayHistory: (recordId: string, targetSection?: string) => {
     const state = get()
     const record = state.practiceHistory.find((r) => r.id === recordId)
     if (!record) return
@@ -525,7 +528,12 @@ export const useGameStore = create<GameState>((set, get) => ({
       gameScore: record.score,
       tempHistory: record.tempHistory,
       replayingRecordId: record.id,
+      reviewTargetSection: targetSection || null,
     })
+  },
+
+  clearReviewTargetSection: () => {
+    set({ reviewTargetSection: null })
   },
 }))
 

@@ -1,11 +1,12 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useGameStore } from '@/store/gameStore'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Filter, ChevronRight, Snowflake, History, Trash2, Eye } from 'lucide-react'
+import { Filter, ChevronRight, Snowflake, History, Trash2, Eye, AlertTriangle, AlertCircle, GraduationCap } from 'lucide-react'
 import CaseCard from '@/components/CaseCard'
 import CaseDetail from '@/components/CaseDetail'
 import { PracticeRecord } from '@/types'
+import { analyzeMistakes, type MistakeSummary } from '@/utils/analyzeMistakes'
 
 type Difficulty = 'all' | 'beginner' | 'intermediate' | 'advanced'
 
@@ -73,8 +74,8 @@ export default function CaseSelection() {
     setSelectedId(null)
   }
 
-  const handleReplay = (recordId: string) => {
-    replayHistory(recordId)
+  const handleReplay = (recordId: string, targetSection?: string) => {
+    replayHistory(recordId, targetSection)
     navigate('/review')
   }
 
@@ -92,6 +93,21 @@ export default function CaseSelection() {
       </div>
 
       <div className="relative z-10 max-w-5xl mx-auto px-6 py-10">
+        <motion.div
+          className="absolute top-6 right-6"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.3 }}
+        >
+          <button
+            onClick={() => navigate('/teacher')}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-ice-300/60 hover:text-ice-300 transition-colors"
+          >
+            <GraduationCap size={16} />
+            教师模式
+          </button>
+        </motion.div>
+
         <motion.div
           className="text-center mb-10"
           initial={{ opacity: 0, y: -20 }}
@@ -213,6 +229,8 @@ export default function CaseSelection() {
             <div className="space-y-3">
               {recentRecords.map((record: PracticeRecord) => {
                 const { grade, color } = getGrade(record.score.totalScore)
+                const caseData = allCases.find((c) => c.id === record.caseId)
+                const mistakes = caseData ? analyzeMistakes(record, caseData).slice(0, 2) : []
                 return (
                   <div
                     key={record.id}
@@ -230,7 +248,7 @@ export default function CaseSelection() {
                           {difficultyLabel[record.caseDifficulty]}
                         </span>
                       </div>
-                      <div className="flex items-center gap-4 text-sm">
+                      <div className="flex items-center gap-4 text-sm mb-2">
                         <span className="text-ice-300/50">{formatDate(record.playedAt)}</span>
                         <span className={`font-orbitron font-bold ${getScoreColor(record.score.totalScore)}`}>
                           {record.score.totalScore.toFixed(1)} 分
@@ -239,10 +257,35 @@ export default function CaseSelection() {
                           {grade}
                         </span>
                       </div>
+                      {mistakes.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {mistakes.map((mistake: MistakeSummary) => (
+                            <button
+                              key={mistake.type}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleReplay(record.id, mistake.targetSectionId)
+                              }}
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full border transition-all ${
+                                mistake.severity === 'high'
+                                  ? 'border-danger/50 text-danger bg-danger/10 hover:bg-danger/20'
+                                  : 'border-warn/50 text-warn bg-warn/10 hover:bg-warn/20'
+                              }`}
+                            >
+                              {mistake.severity === 'high' ? (
+                                <AlertTriangle size={10} />
+                              ) : (
+                                <AlertCircle size={10} />
+                              )}
+                              {mistake.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <button
                       onClick={() => handleReplay(record.id)}
-                      className="btn-outline flex items-center gap-1.5 text-sm px-3 py-1.5"
+                      className="btn-outline flex items-center gap-1.5 text-sm px-3 py-1.5 shrink-0"
                     >
                       <Eye size={15} />
                       查看复盘

@@ -42,11 +42,19 @@ export default function DecisionTimeline({
   }
 
   const criticalClues = clues.filter((c) => c.isCritical && !c.isDistraction)
-  const missedClues = criticalClues.filter((c) => !revealedClues.includes(c.id))
-  const revealedButUnhandled = criticalClues.filter(
+
+  const contextClues = criticalClues.filter((c) => c.responseMode === 'context')
+  const revealedContextClues = contextClues.filter((c) => revealedClues.includes(c.id))
+  const missedContextClues = contextClues.filter((c) => !revealedClues.includes(c.id))
+
+  const actionClues = criticalClues.filter(
+    (c) => c.responseMode === 'action' || (c.actionType && c.responseMode !== 'context')
+  )
+  const missedActionClues = actionClues.filter((c) => !revealedClues.includes(c.id))
+  const revealedButUnhandled = actionClues.filter(
     (c) => revealedClues.includes(c.id) && !actedUponClues.includes(c.id)
   )
-  const revealedAndHandled = criticalClues.filter(
+  const revealedAndHandled = actionClues.filter(
     (c) => revealedClues.includes(c.id) && actedUponClues.includes(c.id)
   )
 
@@ -131,12 +139,30 @@ export default function DecisionTimeline({
           )
         })}
 
+        {revealedContextClues.map((c) => {
+          const x = toX(c.triggerTime)
+          return (
+            <g key={`rc-${c.id}`}>
+              <circle cx={x} cy={timelineY} r={3} fill="#6b8bb0" stroke="#0f1f38" strokeWidth={1} />
+            </g>
+          )
+        })}
+
+        {missedContextClues.map((c) => {
+          const x = toX(c.triggerTime)
+          return (
+            <g key={`mc-ctx-${c.id}`}>
+              <circle cx={x} cy={timelineY} r={3} fill="#3b5278" stroke="#0f1f38" strokeWidth={1} opacity={0.5} />
+            </g>
+          )
+        })}
+
         {revealedAndHandled.map((c) => {
           const x = toX(c.triggerTime)
           return (
             <g key={`rh-${c.id}`}>
               <polygon
-                points={`${x},${timelineY - 8} ${x + 5},${timelineY} ${x},${timelineY + 8} ${x - 5},${timelineY}`}
+                points={`${x},${timelineY - 8} ${x + 6},${timelineY} ${x},${timelineY + 8} ${x - 6},${timelineY}`}
                 fill="#00E676"
                 stroke="#0f1f38"
                 strokeWidth={1}
@@ -150,7 +176,7 @@ export default function DecisionTimeline({
           return (
             <g key={`ru-${c.id}`}>
               <polygon
-                points={`${x},${timelineY - 8} ${x + 5},${timelineY} ${x},${timelineY + 8} ${x - 5},${timelineY}`}
+                points={`${x},${timelineY - 8} ${x + 6},${timelineY} ${x},${timelineY + 8} ${x - 6},${timelineY}`}
                 fill="#FF6B35"
                 stroke="#0f1f38"
                 strokeWidth={1}
@@ -159,12 +185,12 @@ export default function DecisionTimeline({
           )
         })}
 
-        {missedClues.map((c) => {
+        {missedActionClues.map((c) => {
           const x = toX(c.triggerTime)
           return (
             <g key={`mc-${c.id}`}>
-              <line x1={x - 4} y1={timelineY - 4} x2={x + 4} y2={timelineY + 4} stroke="#FF1744" strokeWidth={2} />
-              <line x1={x + 4} y1={timelineY - 4} x2={x - 4} y2={timelineY + 4} stroke="#FF1744" strokeWidth={2} />
+              <line x1={x - 5} y1={timelineY - 5} x2={x + 5} y2={timelineY + 5} stroke="#FF1744" strokeWidth={2} />
+              <line x1={x + 5} y1={timelineY - 5} x2={x - 5} y2={timelineY + 5} stroke="#FF1744" strokeWidth={2} />
             </g>
           )
         })}
@@ -177,13 +203,16 @@ export default function DecisionTimeline({
           <span className="inline-block w-3 h-3 rounded-full bg-ice-500" /> 决策
         </span>
         <span className="flex items-center gap-1">
-          <span className="inline-block w-0 h-0 border-l-[5px] border-r-[5px] border-b-[8px] border-l-transparent border-r-transparent border-b-safe" /> 已处理线索
+          <span className="inline-block w-2 h-2 rounded-full bg-[#6b8bb0]" /> 背景信息线索
         </span>
         <span className="flex items-center gap-1">
-          <span className="inline-block w-0 h-0 border-l-[5px] border-r-[5px] border-b-[8px] border-l-transparent border-r-transparent border-b-warn" /> 未处理线索
+          <span className="inline-block w-0 h-0 border-l-[5px] border-r-[5px] border-b-[8px] border-l-transparent border-r-transparent border-b-safe" /> 已处理行动线索
         </span>
         <span className="flex items-center gap-1">
-          <span className="text-danger font-bold text-sm">×</span> 错失线索
+          <span className="inline-block w-0 h-0 border-l-[5px] border-r-[5px] border-b-[8px] border-l-transparent border-r-transparent border-b-warn" /> 待处理行动线索
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="text-danger font-bold text-sm">×</span> 错失行动线索
         </span>
       </div>
     </div>
